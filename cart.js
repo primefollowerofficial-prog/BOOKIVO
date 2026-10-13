@@ -1,23 +1,48 @@
 'use strict';
 /* ============================================
-   cart.js
-   Runs only on cart.html. Renders the filled/empty state,
-   handles quantity +/-, remove, and opens the Buy Now checkout modal
-   (the same modal markup/checkout.js now included on this page).
+   cart.js — BOOKIVO.IN multi-product cart page
+   Renders every line item with per-line quantity controls,
+   remove buttons, live subtotal/total, and opens the shared
+   checkout modal (checkout.js) with the full cart payload.
+   Display-only pricing; backend recalculates authoritative totals.
    ============================================ */
 
-const PRICE_PER_UNIT = 99; // display-only; backend recalculates the real price
-
 function formatRupees(n) {
-  return '₹' + n.toLocaleString('en-IN');
+  return '₹' + Math.round(n).toLocaleString('en-IN');
+}
+
+function lineHtml(item) {
+  const S = window.BookivoSite;
+  const { selling, original } = S.priceOf(item.book);
+  const cover = item.book.coverImage || (item.book.gallery && item.book.gallery[0]) || 'images/Ebook1.png';
+  return `<div class="cart-item" data-line="${S.esc(item.id)}">
+    <img src="${S.esc(cover)}" alt="Cover of ${S.esc(item.book.title)}">
+    <div class="cart-item-info">
+      <h3>${S.esc(item.book.title)}</h3>
+      <p class="muted">Digital PDF · Instant download</p>
+      <div class="price-row">
+        ${original ? `<span class="price-old">${formatRupees(original)}</span>` : ''}
+        <span class="price-new">${formatRupees(selling)}</span>
+      </div>
+      <div class="qty-selector" role="group" aria-label="Quantity for ${S.esc(item.book.title)}">
+        <button data-qty-minus="${S.esc(item.id)}" aria-label="Decrease quantity">−</button>
+        <span data-qty-value="${S.esc(item.id)}">${item.qty}</span>
+        <button data-qty-plus="${S.esc(item.id)}" aria-label="Increase quantity">+</button>
+      </div>
+    </div>
+    <button class="cart-remove" data-remove="${S.esc(item.id)}" aria-label="Remove ${S.esc(item.book.title)} from cart">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+    </button>
+  </div>`;
 }
 
 function renderCart() {
-  const qty = CartStore.getQty();
+  const items = CartStore.getItems();
   const filledEl = document.getElementById('cartFilled');
   const emptyEl = document.getElementById('cartEmpty');
+  const linesEl = document.getElementById('cartLines');
 
-  if (qty <= 0) {
+  if (!items.length) {
     if (filledEl) filledEl.hidden = true;
     if (emptyEl) emptyEl.hidden = false;
     return;
@@ -25,59 +50,59 @@ function renderCart() {
 
   if (filledEl) filledEl.hidden = false;
   if (emptyEl) emptyEl.hidden = true;
+  if (linesEl) linesEl.innerHTML = items.map(lineHtml).join('');
 
-  const qtyValueEl = document.getElementById('cartQtyValue');
+  const total = CartStore.subtotal();
   const subtotalEl = document.getElementById('cartSubtotal');
   const totalEl = document.getElementById('cartTotal');
-
-  if (qtyValueEl) qtyValueEl.textContent = String(qty);
-  const total = PRICE_PER_UNIT * qty;
   if (subtotalEl) subtotalEl.textContent = formatRupees(total);
   if (totalEl) totalEl.textContent = formatRupees(total);
 }
 
-function init() {
-  renderCart();
+function bindLineEvents() {
+  const linesEl = document.getElementById('cartLines');
+  if (!linesEl) return;
 
-  const minusBtn = document.getElementById('cartQtyMinus');
-  const plusBtn = document.getElementById('cartQtyPlus');
-  const removeBtn = document.getElementById('cartRemove');
-  const buyNowBtn = document.getElementById('cartBuyNowBtn');
+  linesEl.addEventListener('click', (e) => {
+    const minus = e.target.closest('[data-qty-minus]');
+    const plus = e.target.closest('[data-qty-plus]');
+    const remove = e.target.closest('[data-remove]');
 
-  if (minusBtn) {
-    minusBtn.addEventListener('click', () => {
-      const current = CartStore.getQty();
-      if (current > 1) {
-        CartStore.setQty(current - 1);
-        renderCart();
-      }
-    });
-  }
-
-  if (plusBtn) {
-    plusBtn.addEventListener('click', () => {
-      const current = CartStore.getQty();
-      CartStore.setQty(current + 1);
+    if (minus) {
+      const id = minus.getAttribute('data-qty-minus');
+      const q = CartStore.getCount(id);
+      if (q > 1) CartStore.setItem(id, q - 1); else CartStore.removeItem(id);
       renderCart();
-    });
-  }
-
-  if (removeBtn) {
-    removeBtn.addEventListener('click', () => {
-      CartStore.clear();
+    } else if (plus) {
+      const id = plus.getAttribute('data-qty-plus');
+      CartStore.setItem(id, Math.min(CartStore.getCount(id) + 1, 10));
+      renderCart();
+    } else if (remove) {
+      const id = remove.getAttribute('data-remove');
+      CartStore.removeItem(id);
       renderCart();
       if (window.showToast) showToast('Removed from cart', 'info');
-    });
-  }
+    }
+  });
+}
 
-  if (buyNowBtn) {
-    buyNowBtn.addEventListener('click', () => {
-      const qty = CartStore.getQty();
-      if (qty <= 0) return;
-      // The checkout modal markup + checkout.js are now included on
-      // cart.html itself, so this always opens directly here.
-      if (window.Checkout) {
-        window.Checkout.open(qty);
+function init() {
+  renderCart();
+  bindLineEvents();
+
+  // Keep the page in sync when another tab/action changes the cart.
+  document.addEventListener('bookivo:cart-change', renderCart);
+
+  const buyBtn = document.getElementById('cartBuyNowBtn');
+  if (buyBtn) {
+    buyBtn.addEventListener('click', () => {
+      const items = CartStore.getItems();
+      if (!items.length) return;
+      if (window.Checkout && typeof Checkout.openCart === 'function') {
+        Checkout.openCart(items);
+      } else if (window.Checkout) {
+        // Legacy fallback: single-checkout still expects a qty number.
+        Checkout.open(CartStore.totalUnits());
       }
     });
   }

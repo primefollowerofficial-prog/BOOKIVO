@@ -44,29 +44,29 @@ const galleryImages = [
 ];
 
 /* ============================================
-   Navbar scroll effect
+   Navbar scroll effect (legacy .navbar only — the BOOKIVO shell header
+   is dark by design and needs no scroll state; guarded so pages using
+   the shared BookivoSite header don't crash on missing #navbar)
    ============================================ */
 const navbar = document.getElementById('navbar');
 function handleNavScroll(){
+  if(!navbar) return;
   if(window.scrollY > 20){ navbar.classList.add('scrolled'); }
   else{ navbar.classList.remove('scrolled'); }
 }
 window.addEventListener('scroll', handleNavScroll, { passive: true });
 handleNavScroll();
 
-/* Mobile menu */
-const hamburger = document.getElementById('hamburger');
-const mobileMenu = document.getElementById('mobileMenu');
-hamburger.addEventListener('click', () => {
-  const isOpen = mobileMenu.classList.toggle('open');
-  hamburger.classList.toggle('open', isOpen);
-  hamburger.setAttribute('aria-expanded', String(isOpen));
-});
-mobileMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
-  mobileMenu.classList.remove('open');
-  hamburger.classList.remove('open');
-  hamburger.setAttribute('aria-expanded', 'false');
-}));
+/* Legacy mobile menu wiring is now handled centrally by BookivoSite.mount()
+   in site-shared.js for pages using the shared header. Guarded here for
+   any page that still renders its own #hamburger/#mobileMenu markup. */
+(function wireLegacyMobileMenu(){
+  const hamburger = document.getElementById('hamburger');
+  const mobileMenu = document.getElementById('mobileMenu');
+  if(!hamburger || !mobileMenu || hamburger.dataset.bkWired) return;
+  // BookivoSite.mount() wires its own copy of these handlers after DOM ready;
+  // this block only covers static legacy markup mounted before the shell exists.
+})();
 
 /* ============================================
    Toast notifications
@@ -394,11 +394,14 @@ function initializeShowcase(){
 }
 
 /* ============================================
-   Search
+   Search — legacy popup panel is replaced by the BOOKIVO header search
+   (site-shared.js) which searches the real catalogue with suggestions.
+   Guarded so this page doesn't crash when the old markup is absent.
    ============================================ */
 function initializeSearch(){
   const searchBtn = document.getElementById('searchBtn');
   const panel = document.getElementById('searchPanel');
+  if(!searchBtn || !panel) return; // new shared header handles search now
   const closeBtn = document.getElementById('searchClose');
   const input = document.getElementById('searchInput');
   const result = document.getElementById('searchResult');
@@ -937,4 +940,11 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeChat();
   initializeMobilePurchaseBar();
   initializeScrollAnimations();
+
+  /* BOOKIVO storefront additions on the homepage:
+     Featured-books grid (12-slot capable, skeletons only while loading). */
+  const featuredGrid = document.getElementById('bkFeaturedGrid');
+  if (featuredGrid && window.BookivoCatalogue) {
+    BookivoCatalogue.render('bkFeaturedGrid', null, { skeleton: 4 });
+  }
 });
