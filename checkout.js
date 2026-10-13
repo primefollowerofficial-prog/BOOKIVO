@@ -17,6 +17,9 @@ const Checkout = (() => {
       couponToggle, couponRow, couponInput, couponApplyBtn, couponMessage,
       emailVerifyBtn, otpRow, otpInput, otpVerifyBtn, emailVerifyMessage;
   let currentQty = 1;
+  // Multi-product checkout: when opened via openCart(), this holds the
+  // line items [{ book, qty }]. Null means legacy single-cookbook mode.
+  let currentItems = null;
   let appliedCoupon = null; // { code, discountAmount } | null
   let cashfreeSdkPromise = null;
 
@@ -199,7 +202,18 @@ const Checkout = (() => {
 
   /* ---------------- Coupons ---------------- */
 
-  function baseAmount(){ return DISPLAY_PRICE * currentQty; }
+  function linePrice(b){
+    if (window.BookivoSite && BookivoSite.priceOf) return BookivoSite.priceOf(b).selling;
+    return Number(b.sellingPrice != null ? b.sellingPrice : b.price) || 0;
+  }
+
+  // Display-only estimate. The backend ALWAYS recalculates authoritative totals.
+  function baseAmount(){
+    if (currentItems) {
+      return currentItems.reduce((sum, it) => sum + linePrice(it.book) * it.qty, 0);
+    }
+    return DISPLAY_PRICE * currentQty;
+  }
 
   function updateTotalDisplay(){
     if(!totalEl) return;
@@ -261,6 +275,7 @@ const Checkout = (() => {
 
   function open(qty){
     if(!overlay) return;
+    currentItems = null; // legacy single-cookbook mode
     currentQty = Math.max(1, parseInt(qty, 10) || 1);
     qtyLabelEl.textContent = `${currentQty} ${currentQty > 1 ? 'copies' : 'copy'}`;
     resetCouponUI();
@@ -297,6 +312,46 @@ const Checkout = (() => {
 
     // Funnel tracking: a checkout was started.
     if (window.trackEvent) window.trackEvent('checkout_start');
+  }
+
+  /* Multi-product entry point used by the cart page. */
+  function openCart(items){
+    if(!overlay || !Array.isArray(items) || !items.length) return;
+    currentItems = items.map(it => ({ book: it.book, qty: Math.max(1, parseInt(it.qty, 10) || 1) }));
+    const units = currentItems.reduce((s, it) => s + it.qty, 0);
+    const titles = currentItems.map(it => it.book.title);
+    qtyLabelEl.textContent = titles.length === 1
+      ? `${units} × ${titles[0]}`
+      : `${titles.length} items · ${units} copies`;
+    resetCouponUI();
+    resetEmailVerification();
+    updateTotalDisplay();
+    hideError();
+    setLoading(false);
+    form.reset();
+
+    const draft = loadDraft();
+    if(draft){
+      if(nameInput && draft.name) nameInput.value = draft.name;
+      if(emailInput && draft.email) emailInput.value = draft.email;
+      if(phoneInput && draft.phone) phoneInput.value = draft.phone;
+      if(draft.emailVerified && draft.verifiedEmail && draft.verifiedEmail === draft.email){
+        emailVerified = true;
+        verifiedEmail = draft.verifiedEmail;
+        if(otpRow) otpRow.hidden = true;
+        if(emailVerifyBtn){
+          emailVerifyBtn.textContent = 'Verified';
+          emailVerifyBtn.disabled = true;
+        }
+        showVerifyMessage('Verified successfully', 'success');
+      }
+    }
+
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => nameInput && nameInput.focus(), 250);
+    if (window.trackEvent) window.trackEvent('checkout_start', 'cart');
   }
 
   function close(){
