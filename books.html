@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Books — Bookivo.in | Quality Ebooks That Inspire Learning</title>
+<meta name="description" content="Browse every ebook published on Bookivo.in — cooking, self-help, finance, skills and more. Instant PDF delivery, honest Indian pricing from ₹99.">
+<meta property="og:site_name" content="Bookivo.in">
+<meta property="og:title" content="All Books — Bookivo.in">
+<meta property="og:description" content="Browse the full Bookivo.in ebook catalogue.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://bookivo.in/books.html">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- BOOKIVO site shell -->
+<div id="siteHeader"></div>
+
+<main id="top">
+  <section class="bk-catalog-section">
+    <div class="bk-catalog-head" data-reveal>
+      <div>
+        <h2>All Books</h2>
+        <p>The complete Bookivo.in catalogue — quality ebooks that inspire learning and growth.</p>
+      </div>
+    </div>
+
+    <div class="bk-toolbar" data-reveal>
+      <input type="search" id="bkFilterSearch" placeholder="Filter by title, author, category…" aria-label="Filter books">
+      <select id="bkCategorySelect" aria-label="Filter by category">
+        <option value="">All categories</option>
+      </select>
+      <select id="bkSortSelect" aria-label="Sort books">
+        <option value="featured">Featured</option>
+        <option value="price-asc">Price: Low to High</option>
+        <option value="price-desc">Price: High to Low</option>
+        <option value="rating">Top Rated</option>
+        <option value="newest">Newest</option>
+      </select>
+      <button type="button" class="bk-chip" id="bkDealsChip" aria-pressed="false">🔥 Deals only</button>
+    </div>
+
+    <div class="bk-grid" id="bkAllBooksGrid"><!-- populated by bookpage.js --></div>
+  </section>
+</main>
+
+<div id="siteFooter"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="config.js"></script>
+<script src="data.js"></script>
+<script src="cart-shared.js"></script>
+<script src="site-shared.js"></script>
+<script>BookivoSite.mount('books');</script>
+<script src="catalogue.js"></script>
+<script src="bookpage.js"></script>
+</body>
+</html>
